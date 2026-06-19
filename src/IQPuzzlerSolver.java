@@ -45,13 +45,12 @@ public class IQPuzzlerSolver {
         String filePath = scanner.nextLine();
         System.out.println("");
         if (!readInputFile(filePath)) {
-            System.out.println("Gagal membaca file test case atau file tidak ada.\n");
             scanner.close();
             return;
         }
-        
+
         long startTime = System.currentTimeMillis();
-        boolean solved = solve(0);
+        boolean solved = isFeasible() && solve(0);
         long endTime = System.currentTimeMillis();
         
         if (solved) {
@@ -79,23 +78,49 @@ public class IQPuzzlerSolver {
     }
     
     private static boolean readInputFile(String filePath) {
+        Set<Character> usedLetters = new HashSet<>();
         try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
-            String[] dimensions = br.readLine().split(" ");
+            String dimLine = br.readLine();
+            if (dimLine == null) throw new IllegalArgumentException("File kosong.");
+            String[] dimensions = dimLine.trim().split("\\s+");
+            if (dimensions.length < 3) throw new IllegalArgumentException("Baris pertama harus berisi N M P.");
             rows = Integer.parseInt(dimensions[0]);
             cols = Integer.parseInt(dimensions[1]);
             pieceCount = Integer.parseInt(dimensions[2]);
+            if (rows <= 0 || cols <= 0 || pieceCount <= 0) {
+                throw new IllegalArgumentException("N, M, dan P harus bilangan bulat positif.");
+            }
             maskBoard = new char[rows][cols];
             board = new char[rows][cols];
-            String boardType = br.readLine(); // DEFAULT, CUSTOM
-            if (boardType.equals("DEFAULT")) {
+
+            String boardType = br.readLine();
+            if (boardType != null) boardType = boardType.trim();
+            if ("DEFAULT".equals(boardType)) {
                 for (char[] row : maskBoard) Arrays.fill(row, 'X');
-            } else if (boardType.equals("CUSTOM")) {
+            } else if ("CUSTOM".equals(boardType)) {
                 for (int i = 0; i < rows; i++) {
-                    maskBoard[i] = br.readLine().toCharArray();
+                    String boardRow = br.readLine();
+                    if (boardRow == null) {
+                        throw new IllegalArgumentException("Konfigurasi papan CUSTOM kurang dari " + rows + " baris.");
+                    }
+                    Arrays.fill(maskBoard[i], '.'); // Padding agar baris pendek tidak menyebabkan crash
+                    for (int j = 0; j < boardRow.length(); j++) {
+                        char ch = boardRow.charAt(j);
+                        if (j >= cols) {
+                            if (ch != ' ') throw new IllegalArgumentException("Baris papan CUSTOM ke-" + (i + 1) + " lebih panjang dari " + cols + " kolom.");
+                            continue;
+                        }
+                        if (ch != 'X' && ch != '.' && ch != ' ') {
+                            throw new IllegalArgumentException("Papan CUSTOM hanya boleh berisi 'X', '.', atau spasi.");
+                        }
+                        maskBoard[i][j] = (ch == 'X') ? 'X' : '.';
+                    }
                 }
+            } else {
+                throw new IllegalArgumentException("Tipe papan harus 'DEFAULT' atau 'CUSTOM', bukan '" + boardType + "'.");
             }
             for (char[] row : board) Arrays.fill(row, '.');
-            
+
             int piecesRead = 0;
             String currentLetter = "";
             List<String> shapeLines = new ArrayList<>();
@@ -104,30 +129,71 @@ public class IQPuzzlerSolver {
             while ((line = br.readLine()) != null) {
                 line = line.stripTrailing(); // Menghapus space tambahan
                 if (line.isEmpty()) continue; // Melewati barisan kosong
-                
+
                 char firstChar = line.trim().charAt(0); // Memeriksa huruf
                 if (currentLetter.isEmpty() || firstChar == currentLetter.charAt(0)) {
                     shapeLines.add(line);
                 } else {
                     // Simpan piece sebelum, tambah piece lain
-                    pieces.add(convertToMatrix(shapeLines, currentLetter.charAt(0)));
+                    addPiece(shapeLines, currentLetter.charAt(0), usedLetters);
                     piecesRead++;
                     shapeLines.clear();
                     shapeLines.add(line);
                 }
                 currentLetter = String.valueOf(firstChar);
             }
-            
+
             // Piece terakhir
             if (!shapeLines.isEmpty()) {
-                pieces.add(convertToMatrix(shapeLines, currentLetter.charAt(0)));
+                addPiece(shapeLines, currentLetter.charAt(0), usedLetters);
                 piecesRead++;
             }
-            
-            return piecesRead == pieceCount;
+
+            if (piecesRead != pieceCount) {
+                throw new IllegalArgumentException("Jumlah piece (" + piecesRead + ") tidak sama dengan P (" + pieceCount + ").");
+            }
+            return true;
+        } catch (IllegalArgumentException e) {
+            System.out.println(e.getMessage() + "\n");
+            return false;
         } catch (Exception e) {
+            System.out.println("Gagal membaca file test case atau file tidak ada.\n");
             return false;
         }
+    }
+
+    // Memvalidasi lalu menambahkan sebuah piece ke daftar pieces
+    private static void addPiece(List<String> shapeLines, char letter, Set<Character> usedLetters) {
+        if (letter < 'A' || letter > 'Z') {
+            throw new IllegalArgumentException("Piece harus diberi label huruf kapital A-Z, bukan '" + letter + "'.");
+        }
+        if (!usedLetters.add(letter)) {
+            throw new IllegalArgumentException("Label piece '" + letter + "' digunakan lebih dari sekali.");
+        }
+        pieces.add(convertToMatrix(shapeLines, letter));
+    }
+
+    // Mengecek kelayakan sebelum solve: total sel piece harus sama dengan sel papan yang harus diisi,
+    // dan tidak ada piece yang lebih besar dari papan. Mengembalikan true jika masih mungkin ada solusi.
+    private static boolean isFeasible() {
+        int fillableCells = 0;
+        for (char[] row : maskBoard) {
+            for (char cell : row) {
+                if (cell == 'X') fillableCells++;
+            }
+        }
+        int totalPieceCells = 0;
+        for (char[][] piece : pieces) {
+            for (char[] row : piece) {
+                for (char cell : row) {
+                    if (cell != ' ') totalPieceCells++;
+                }
+            }
+            if (piece.length > rows || piece[0].length > cols) {
+                return false; // Piece tidak muat di papan
+            }
+        }
+        return totalPieceCells == fillableCells;
     }
 
     private static char[][] convertToMatrix(List<String> shapeLines, char letter) {
