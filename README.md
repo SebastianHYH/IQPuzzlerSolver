@@ -18,6 +18,11 @@ Program ini dinamakan IQ Puzzler Solver, sebuah program yang dapat menyelesaikan
 4. Jalankan program dengan
    ```sh
    java IQPuzzlerSolver
+   ```
+   Secara default program menggunakan algoritma brute force. Untuk menjalankan dengan algoritma backtracking yang lebih cepat (heuristik), tambahkan argumen `--fast`:
+   ```sh
+   java IQPuzzlerSolver --fast
+   ```
 5. Ketika program sudah dijalankan, anda akan diminta untuk memasukkan path test case
 
 ## Test case format (.txt)

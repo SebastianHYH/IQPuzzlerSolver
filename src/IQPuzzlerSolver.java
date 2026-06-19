@@ -11,8 +11,9 @@ public class IQPuzzlerSolver {
     private static List<List<char[][]>> pieceTransformations = new ArrayList<>();
     private static char[] pieceSymbols; // Huruf simbol tiap piece
     private static long iterations = 0;
-    // true = brute force murni (sesuai spek tugas); false = backtracking dengan heuristik (lebih cepat)
-    private static final boolean BRUTE_FORCE = true;
+    // true = brute force murni (sesuai spek tugas); false = backtracking dengan heuristik (lebih cepat).
+    // Dapat diubah ke false saat runtime dengan argumen --fast
+    private static boolean bruteForce = true;
     // COLORS //
     private static final String[] COLORS = {
         "\u001B[31m", // Red
@@ -45,7 +46,11 @@ public class IQPuzzlerSolver {
     private static final String RESET = "\u001B[0m";
 
     public static void main(String[] args) {
+        for (String arg : args) {
+            if (arg.equals("--fast")) bruteForce = false;
+        }
         Scanner scanner = new Scanner(System.in);
+        System.out.println(bruteForce ? "Mode: brute force" : "Mode: cepat (heuristik)");
         System.out.print("Masukkan path test case(.txt): ");
         String filePath = scanner.nextLine();
         System.out.println("");
@@ -57,7 +62,7 @@ public class IQPuzzlerSolver {
         long startTime = System.currentTimeMillis();
         precompute();
         boolean solved;
-        if (BRUTE_FORCE) {
+        if (bruteForce) {
             // Brute force murni: biarkan pencarian sendiri yang menemukan ada/tidaknya solusi
             solved = solveBrute(0);
         } else {
