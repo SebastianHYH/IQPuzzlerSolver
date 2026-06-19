@@ -55,10 +55,14 @@ public class IQPuzzlerSolver {
         }
 
         long startTime = System.currentTimeMillis();
-        boolean solved = false;
-        if (isFeasible()) {
-            precompute();
-            solved = BRUTE_FORCE ? solveBrute(0) : solveFast(new boolean[pieces.size()]);
+        precompute();
+        boolean solved;
+        if (BRUTE_FORCE) {
+            // Brute force murni: biarkan pencarian sendiri yang menemukan ada/tidaknya solusi
+            solved = solveBrute(0);
+        } else {
+            // solveFast mengandalkan jaminan isFeasible (total sel piece == sel papan) untuk base case-nya
+            solved = isFeasible() && solveFast(new boolean[pieces.size()]);
         }
         long endTime = System.currentTimeMillis();
         
