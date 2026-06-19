@@ -3,52 +3,27 @@ import java.util.*;
 
 
 public class IQPuzzlerSolver {
-    private static int rows, cols, pieceCount;
-    private static char[][] board;
-    private static char[][] maskBoard; // For Masking the board
-    private static List<char[][]> pieces = new ArrayList<>();
+    private int rows, cols, pieceCount;
+    private char[][] board;
+    private char[][] maskBoard; // For Masking the board
+    private List<char[][]> pieces = new ArrayList<>();
     // Transformasi (rotasi/mirror) tiap piece dihitung sekali saja, bukan di setiap node rekursi
-    private static List<List<char[][]>> pieceTransformations = new ArrayList<>();
-    private static char[] pieceSymbols; // Huruf simbol tiap piece
-    private static long iterations = 0;
+    private List<List<char[][]>> pieceTransformations = new ArrayList<>();
+    private char[] pieceSymbols; // Huruf simbol tiap piece
+    private long iterations = 0;
     // true = brute force murni (sesuai spek tugas); false = backtracking dengan heuristik (lebih cepat).
     // Dapat diubah ke false saat runtime dengan argumen --fast
-    private static boolean bruteForce = true;
-    // COLORS //
-    private static final String[] COLORS = {
-        "\u001B[31m", // Red
-        "\u001B[32m", // Green
-        "\u001B[33m", // Yellow
-        "\u001B[34m", // Blue
-        "\u001B[35m", // Magenta
-        "\u001B[36m", // Cyan
-        "\u001B[38;5;208m", // Orange
-        "\u001B[38;5;214m", // Light Orange
-        "\u001B[38;5;165m", // Purple
-        "\u001B[38;5;200m", // Pink
-        "\u001B[38;5;118m", // Bright Lime Green
-        "\u001B[38;5;75m",  // Sky Blue
-        "\u001B[38;5;220m", // Gold
-        "\u001B[38;5;130m", // Brown
-        "\u001B[38;5;255m", // Light Gray
-        "\u001B[38;5;21m",  // Deep Blue
-        "\u001B[91m", // Bright Red
-        "\u001B[92m", // Bright Green
-        "\u001B[93m", // Bright Yellow
-        "\u001B[94m", // Bright Blue
-        "\u001B[95m", // Bright Magenta
-        "\u001B[96m", // Bright Cyan
-        "\u001B[90m", // Dark Gray
-        "\u001B[97m",  // White
-        "\u001B[38;5;196m", // Dark Red
-        "\u001B[38;5;46m",  // Dark Green
-    };
-    private static final String RESET = "\u001B[0m";
+    private boolean bruteForce = true;
 
     public static void main(String[] args) {
+        IQPuzzlerSolver solver = new IQPuzzlerSolver();
         for (String arg : args) {
-            if (arg.equals("--fast")) bruteForce = false;
+            if (arg.equals("--fast")) solver.bruteForce = false;
         }
+        solver.run();
+    }
+
+    private void run() {
         Scanner scanner = new Scanner(System.in);
         System.out.println(bruteForce ? "Mode: brute force" : "Mode: cepat (heuristik)");
         System.out.print("Masukkan path test case(.txt): ");
@@ -70,13 +45,13 @@ public class IQPuzzlerSolver {
             solved = isFeasible() && solveFast(new boolean[pieces.size()]);
         }
         long endTime = System.currentTimeMillis();
-        
+
         if (solved) {
             printBoard();
         } else {
             System.out.println("Tidak ditemukan solusi.\n");
         }
-        
+
         System.out.println("Waktu pencarian: " + (endTime - startTime) + " ms\n");
         System.out.println("Banyak kasus yang ditinjau: " + iterations +"\n");
 
@@ -89,13 +64,13 @@ public class IQPuzzlerSolver {
             if (scanner.nextLine().equalsIgnoreCase("ya")) {
                 System.out.print("Masukkan nama file: ");
                 String filename = scanner.nextLine();
-                SaveAsImage.main(board, rows, cols, filePath, filename);
+                SaveAsImage.save(board, rows, cols, filePath, filename);
             }
         }
         scanner.close();
     }
-    
-    private static boolean readInputFile(String filePath) {
+
+    private boolean readInputFile(String filePath) {
         Set<Character> usedLetters = new HashSet<>();
         try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
             String dimLine = br.readLine();
@@ -181,7 +156,7 @@ public class IQPuzzlerSolver {
     }
 
     // Memvalidasi lalu menambahkan sebuah piece ke daftar pieces
-    private static void addPiece(List<String> shapeLines, char letter, Set<Character> usedLetters) {
+    private void addPiece(List<String> shapeLines, char letter, Set<Character> usedLetters) {
         if (letter < 'A' || letter > 'Z') {
             throw new IllegalArgumentException("Piece harus diberi label huruf kapital A-Z, bukan '" + letter + "'.");
         }
@@ -193,7 +168,7 @@ public class IQPuzzlerSolver {
 
     // Mengecek kelayakan sebelum solve: total sel piece harus sama dengan sel papan yang harus diisi,
     // dan tidak ada piece yang lebih besar dari papan. Mengembalikan true jika masih mungkin ada solusi.
-    private static boolean isFeasible() {
+    private boolean isFeasible() {
         int fillableCells = 0;
         for (char[] row : maskBoard) {
             for (char cell : row) {
@@ -214,10 +189,10 @@ public class IQPuzzlerSolver {
         return totalPieceCells == fillableCells;
     }
 
-    private static char[][] convertToMatrix(List<String> shapeLines, char letter) {
+    private char[][] convertToMatrix(List<String> shapeLines, char letter) {
         int h = shapeLines.size();
         int w = shapeLines.stream().mapToInt(String::length).max().orElse(0);
-        
+
         // Membuat matrix kosong
         char[][] shape = new char[h][w];
         for (int i = 0; i < h; i++) {
@@ -231,9 +206,9 @@ public class IQPuzzlerSolver {
         }
         return shape;
     }
-    
+
     // Menghitung transformasi dan simbol tiap piece sekali sebelum proses solve
-    private static void precompute() {
+    private void precompute() {
         pieceSymbols = new char[pieces.size()];
         for (int p = 0; p < pieces.size(); p++) {
             pieceTransformations.add(generateTransformations(pieces.get(p)));
@@ -241,7 +216,7 @@ public class IQPuzzlerSolver {
         }
     }
 
-    private static char symbolOf(char[][] piece) {
+    private char symbolOf(char[][] piece) {
         for (char[] row : piece) {
             for (char ch : row) {
                 if (ch != ' ') return ch;
@@ -252,7 +227,7 @@ public class IQPuzzlerSolver {
 
     // Brute force murni: tiap piece (urut), coba semua transformasi di semua posisi papan.
     // Mengeksplorasi seluruh ruang solusi secara ekshaustif tanpa heuristik.
-    private static boolean solveBrute(int pieceIndex) {
+    private boolean solveBrute(int pieceIndex) {
         if (pieceIndex >= pieces.size()) {
             return firstEmptyCell() < 0; // Semua sel yang harus diisi sudah terisi
         }
@@ -272,7 +247,7 @@ public class IQPuzzlerSolver {
     }
 
     // Backtracking dengan heuristik: hanya mencoba penempatan yang menutupi sel kosong pertama.
-    private static boolean solveFast(boolean[] used) {
+    private boolean solveFast(boolean[] used) {
         // Cari sel kosong pertama yang harus diisi. Jika tidak ada, papan selesai.
         // Karena total sel piece == sel yang harus diisi (lihat isFeasible), papan penuh berarti semua piece terpakai.
         int target = firstEmptyCell();
@@ -301,7 +276,7 @@ public class IQPuzzlerSolver {
         return false;
     }
 
-    private static int firstEmptyCell() {
+    private int firstEmptyCell() {
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
                 if (maskBoard[i][j] == 'X' && board[i][j] == '.') {
@@ -311,8 +286,8 @@ public class IQPuzzlerSolver {
         }
         return -1;
     }
-    
-    private static List<char[][]> generateTransformations(char[][] piece) {
+
+    private List<char[][]> generateTransformations(char[][] piece) {
         Set<String> uniqueTransformations = new HashSet<>();
         List<char[][]> transformations = new ArrayList<>();
         for (int i = 0; i < 4; i++) {
@@ -328,15 +303,15 @@ public class IQPuzzlerSolver {
         return transformations;
     }
 
-    private static char[][] copyMatrix(char[][] matrix) {
+    private char[][] copyMatrix(char[][] matrix) {
         char[][] copy = new char[matrix.length][matrix[0].length];
         for (int i = 0; i < matrix.length; i++) {
             System.arraycopy(matrix[i], 0, copy[i], 0, matrix[i].length);
         }
         return copy;
-    } 
+    }
     // Modify pieces
-    private static char[][] rotate90(char[][] piece) {
+    private char[][] rotate90(char[][] piece) {
         int h = piece.length, w = piece[0].length;
         char[][] rotated = new char[w][h];
         for (int i = 0; i < h; i++) {
@@ -346,8 +321,8 @@ public class IQPuzzlerSolver {
         }
         return rotated;
     }
-    
-    private static char[][] mirror(char[][] piece) {
+
+    private char[][] mirror(char[][] piece) {
         int h = piece.length, w = piece[0].length;
         char[][] mirrored = new char[h][w];
         for (int i = 0; i < h; i++) {
@@ -357,8 +332,8 @@ public class IQPuzzlerSolver {
         }
         return mirrored;
     }
-    
-    private static boolean canPlace(char[][] piece, int r, int c) {
+
+    private boolean canPlace(char[][] piece, int r, int c) {
         for (int i = 0; i < piece.length; i++) {
             for (int j = 0; j < piece[i].length; j++) {
                 if (piece[i][j] != ' ') {
@@ -371,7 +346,7 @@ public class IQPuzzlerSolver {
         return true;
     }
 
-    private static void placePiece(char[][] piece, int r, int c, char symbol) {
+    private void placePiece(char[][] piece, int r, int c, char symbol) {
         for (int i = 0; i < piece.length; i++) {
             for (int j = 0; j < piece[i].length; j++) {
                 if (piece[i][j] != ' ') {
@@ -380,8 +355,8 @@ public class IQPuzzlerSolver {
             }
         }
     }
-    
-    private static void removePiece(char[][] piece, int r, int c) {
+
+    private void removePiece(char[][] piece, int r, int c) {
         for (int i = 0; i < piece.length; i++) {
             for (int j = 0; j < piece[i].length; j++) {
                 if (piece[i][j] != ' ') {
@@ -390,22 +365,16 @@ public class IQPuzzlerSolver {
             }
         }
     }
-    
-    private static void printBoard() { // Print board
-        Map<Character, String> colorMap = new HashMap<>();
-        
-        for (char c = 'A'; c <= 'Z'; c++) {
-            colorMap.put(c, COLORS[(c - 'A') % COLORS.length]);
-        }
-        
+
+    private void printBoard() { // Print board
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
                 char cell = board[i][j];
 
-                if (cell == '.') { 
+                if (cell == '.') {
                     System.out.print((maskBoard[i][j] == 'X' ? "." : " ") + " "); // Menyembunyikan . dan/atau X pada board
                 } else {
-                    System.out.print(colorMap.get(cell) + cell + RESET + " ");
+                    System.out.print(Palette.ansiFor(cell) + cell + Palette.RESET + " ");
                 }
             }
             System.out.println();
@@ -413,16 +382,16 @@ public class IQPuzzlerSolver {
         System.out.println();
     }
 
-    private static void saveSolution(String outputPath, String testCasePath) { // File .txt
+    private void saveSolution(String outputPath, String testCasePath) { // File .txt
         File testCaseDir = new File(testCasePath).getParentFile();
         File solutionsDir = new File(testCaseDir, "solutions");
-    
+
         if (!solutionsDir.exists()) {
             solutionsDir.mkdir(); // Create folder if it doesn't exist
         }
-        
+
         File outputFile = new File(solutionsDir, new File(outputPath).getName());
-        
+
         try (PrintWriter writer = new PrintWriter(outputFile)) {
             for (int i = 0; i < rows; i++) {
                 for (int j = 0; j < cols; j++) {
