@@ -7,7 +7,12 @@ public class IQPuzzlerSolver {
     private static char[][] board;
     private static char[][] maskBoard; // For Masking the board
     private static List<char[][]> pieces = new ArrayList<>();
+    // Transformasi (rotasi/mirror) tiap piece dihitung sekali saja, bukan di setiap node rekursi
+    private static List<List<char[][]>> pieceTransformations = new ArrayList<>();
+    private static char[] pieceSymbols; // Huruf simbol tiap piece
     private static long iterations = 0;
+    // true = brute force murni (sesuai spek tugas); false = backtracking dengan heuristik (lebih cepat)
+    private static final boolean BRUTE_FORCE = true;
     // COLORS //
     private static final String[] COLORS = {
         "\u001B[31m", // Red
@@ -50,7 +55,11 @@ public class IQPuzzlerSolver {
         }
 
         long startTime = System.currentTimeMillis();
-        boolean solved = isFeasible() && solve(0);
+        boolean solved = false;
+        if (isFeasible()) {
+            precompute();
+            solved = BRUTE_FORCE ? solveBrute(0) : solveFast(new boolean[pieces.size()]);
+        }
         long endTime = System.currentTimeMillis();
         
         if (solved) {
@@ -214,41 +223,84 @@ public class IQPuzzlerSolver {
         return shape;
     }
     
-    private static boolean solve(int pieceIndex) {
-        if (pieceIndex >= pieces.size()) {
-            for (int i = 0; i < rows; i++) {
-                for (int j = 0; j < cols; j++) {
-                    if (maskBoard[i][j] == 'X' && board[i][j] == '.') {
-                        return false;
-                    } 
-                }
-            }
-            return true;
+    // Menghitung transformasi dan simbol tiap piece sekali sebelum proses solve
+    private static void precompute() {
+        pieceSymbols = new char[pieces.size()];
+        for (int p = 0; p < pieces.size(); p++) {
+            pieceTransformations.add(generateTransformations(pieces.get(p)));
+            pieceSymbols[p] = symbolOf(pieces.get(p));
         }
+    }
 
-        
-        char[][] piece = pieces.get(pieceIndex);
-        List<char[][]> transformations = generateTransformations(piece);
-        
-        for (char[][] transformedPiece : transformations) {
-            for (int r = 0; r <= rows - transformedPiece.length; r++) {
-                for (int c = 0; c <= cols - transformedPiece[0].length; c++) {
-                    if (canPlace(transformedPiece, r, c)) {
-                        char shapeSymbol = piece[0][0];
-                        int symbolPicker = 1;
-                        while (shapeSymbol == ' ') { //              Kalau tile atas kiri kosong, cari tile lain
-                            shapeSymbol = piece[0][symbolPicker]; // e.g: .A
-                            symbolPicker++;                       //      AA
-                        }                                         // where dot = empty space
-                        placePiece(transformedPiece, r, c, shapeSymbol);
-                        iterations++;                        
-                        if (solve(pieceIndex + 1)) return true;
-                        removePiece(transformedPiece, r, c);
+    private static char symbolOf(char[][] piece) {
+        for (char[] row : piece) {
+            for (char ch : row) {
+                if (ch != ' ') return ch;
+            }
+        }
+        return '?'; // Tidak akan terjadi: setiap piece punya minimal satu sel
+    }
+
+    // Brute force murni: tiap piece (urut), coba semua transformasi di semua posisi papan.
+    // Mengeksplorasi seluruh ruang solusi secara ekshaustif tanpa heuristik.
+    private static boolean solveBrute(int pieceIndex) {
+        if (pieceIndex >= pieces.size()) {
+            return firstEmptyCell() < 0; // Semua sel yang harus diisi sudah terisi
+        }
+        for (char[][] t : pieceTransformations.get(pieceIndex)) {
+            for (int r = 0; r <= rows - t.length; r++) {
+                for (int c = 0; c <= cols - t[0].length; c++) {
+                    if (canPlace(t, r, c)) {
+                        placePiece(t, r, c, pieceSymbols[pieceIndex]);
+                        iterations++;
+                        if (solveBrute(pieceIndex + 1)) return true;
+                        removePiece(t, r, c);
                     }
                 }
             }
         }
         return false;
+    }
+
+    // Backtracking dengan heuristik: hanya mencoba penempatan yang menutupi sel kosong pertama.
+    private static boolean solveFast(boolean[] used) {
+        // Cari sel kosong pertama yang harus diisi. Jika tidak ada, papan selesai.
+        // Karena total sel piece == sel yang harus diisi (lihat isFeasible), papan penuh berarti semua piece terpakai.
+        int target = firstEmptyCell();
+        if (target < 0) return true;
+        int tr = target / cols, tc = target % cols;
+
+        for (int p = 0; p < pieces.size(); p++) {
+            if (used[p]) continue;
+            for (char[][] t : pieceTransformations.get(p)) {
+                // Coba semua penempatan di mana sebuah sel piece menutupi sel target
+                for (int i = 0; i < t.length; i++) {
+                    for (int j = 0; j < t[i].length; j++) {
+                        if (t[i][j] == ' ') continue;
+                        int r = tr - i, c = tc - j;
+                        if (r < 0 || c < 0 || !canPlace(t, r, c)) continue;
+                        placePiece(t, r, c, pieceSymbols[p]);
+                        used[p] = true;
+                        iterations++;
+                        if (solveFast(used)) return true;
+                        used[p] = false;
+                        removePiece(t, r, c);
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private static int firstEmptyCell() {
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                if (maskBoard[i][j] == 'X' && board[i][j] == '.') {
+                    return i * cols + j;
+                }
+            }
+        }
+        return -1;
     }
     
     private static List<char[][]> generateTransformations(char[][] piece) {
