@@ -3,12 +3,12 @@
 Program ini dinamakan IQ Puzzler Solver, sebuah program yang dapat menyelesaikan tantangan-tantangan dari permainan IQ Puzzler Pro. Solusi yang diberikan program dapat disimpan sebagai file teks ataupun file gambar
 
 ## Requirements
-- Latest version of Java and its libraries
+- JDK 11 or newer
 
 ## How to Run
 1. Clone repository menggunakan
    ```sh
-   git clone https://github.com/SebastianHYH/Tucil1_13523070.git
+   git clone https://github.com/SebastianHYH/IQPuzzlerSolver.git
 2. Buka directory program di
    ```sh
    ..\src\
